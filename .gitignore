@@ -1,0 +1,168 @@
+# ============================
+# VISUAL STUDIO / .NET BASICS
+# ============================
+
+# Build results
+**/bin/
+**/obj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Auto Generated Files
+mono_crash.*
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# VS Code directories
+.vscode/
+.vscode-test/
+
+# Other files and directories
+*~$*
+*.ncb
+*.aps
+*.pch
+*.vspscc
+*.vssscc
+
+# Uncomment if you have added code analysis tools
+# *.StaticAnalysis.*.xml
+
+# MVC & server-side
+*.pri
+*.resjson
+*.geojson
+*.cityjson
+*.topojson
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Windows
+*.pdb
+*.exe
+*.dll
+*.config
+*.lib
+*.msp
+*.msi
+*.cab
+*.nupkg
+*.nuspec
+
+# WebAPI & MVC
+bin/
+obj/
+
+# StyleCop
+*.ruleset
+*.editorconfig
+
+# NuGet Packages
+*.nupkg
+**/[Pp]ackages/*
+
+# Visual Studio cache
+.vs/
+
+
+# ============================
+# MAUI / MOBILE ADDITIONS
+# ============================
+
+# MAUI generated resources
+Resources/Raw/*.zip
+
+# Android
+*.apk
+*.aab
+Platforms/Android/*.keystore
+**/obj/Debug/net*/android/
+**/obj/Release/net*/android/
+
+# iOS
+*.ipa
+Platforms/iOS/*.mobileprovision
+Platforms/iOS/*.plist
+**/obj/Debug/net*/ios/
+**/obj/Release/net*/ios/
+
+
+# ============================
+# SQLITE (CRITICAL FOR YOU)
+# ============================
+
+*.db
+*.db-shm
+*.db-wal
+
+
+# ============================
+# LOGS / TEMP
+# ============================
+
+*.log
+*.tlog
+*.tmp
+*.temp
+*.svclog
+*.pidb
+
+
+# ============================
+# IDEs
+# ============================
+
+# JetBrains Rider
+.idea/
+*.iml
+
+
+# ============================
+# OS JUNK
+# ============================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+
+# ============================
+# MISC
+# ============================
+
+*.orig
+*.bak
+*.old
+*.rej
+*.diff
+*.patch
