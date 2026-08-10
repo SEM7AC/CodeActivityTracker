@@ -98,47 +98,38 @@ This is intentional.
 
 ---
 
-## 📦 Architecture Overview
+## Architecture Overview
 
-
-Code
 TimerService → CollectSignals() → IncrementCounters() → ActivityUpdated event → UI/Logger
-CollectSignals gathers OS input + window state
 
-IncrementCounters applies cooldown logic and increments activity streams
-
-ActivityUpdated emits a structured snapshot
-
+CollectSignals gathers OS input + window state  
+IncrementCounters applies cooldown logic and increments activity streams  
+ActivityUpdated emits a structured snapshot  
 UI layer renders bars, percentages, and session summaries
 
-📈 Example Output
-Code
-Total: 00:07:48
-Typing: 54%
-IDE:    24%
-Idle:   32%
-Debug:   0%
+## Example Output
+
+Total: 00:07:48  
+Typing: 54%  
+IDE:    24%  
+Idle:   32%  
+Debug:   0%  
 Tier: BEAST MODE
+
 Percentages exceed 100% because streams overlap — this is correct.
 
-⚠ Known Limitations
-Mouse detection is movement‑based, not click‑based
+## Known Limitations
 
-IDE detection supports Visual Studio only
-
-Idle detection depends on Windows GetLastInputInfo
-
+Mouse detection is movement‑based, not click‑based  
+IDE detection supports Visual Studio only  
+Idle detection depends on Windows GetLastInputInfo  
 Cooldowns assume 1 tick = 1 second
 
-🛠 Future Enhancements
-Click detection
+## Future Enhancements
 
-VS Code support
-
-Micro‑idle tracking (1–3 seconds)
-
-Per‑process typing attribution
-
-Session charts
-
+Click detection  
+VS Code support  
+Micro‑idle tracking (1–3 seconds)  
+Per‑process typing attribution  
+Session charts  
 Multi‑IDE support
