@@ -11,6 +11,7 @@ public class ActivityTrackerService
 
     private int idleCooldown = 0;
     private int typingCooldown = 0;
+    private int ideCooldown = 0;
     private int typingSeconds = 0;
     private int idleSeconds = 0;
     private int debugSeconds = 0;
@@ -27,6 +28,16 @@ public class ActivityTrackerService
     //DLL IMPORTS ---------------------------------------------
 
     [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(POINT Point);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+
+
+    [DllImport("user32.dll")]
     private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
     [DllImport("user32.dll")]
@@ -38,11 +49,19 @@ public class ActivityTrackerService
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
 
+
     [StructLayout(LayoutKind.Sequential)]
     private struct LASTINPUTINFO
         {
         public uint cbSize;
         public uint dwTime;
+        }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+        {
+        public int X;
+        public int Y;
         }
 
 
@@ -89,6 +108,25 @@ public class ActivityTrackerService
         {
         return Debugger.IsAttached;
         }
+    private bool DetectMouseInsideIDE()
+        {
+        POINT pt;
+        GetCursorPos(out pt);
+
+        IntPtr window = WindowFromPoint(pt);
+
+        IntPtr ideWindow = GetForegroundWindow();
+        uint pid;
+        GetWindowThreadProcessId(ideWindow, out pid);
+
+        var process = Process.GetProcessById((int)pid);
+
+        if (!process.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return window == ideWindow || IsChild(ideWindow, window);
+        }
+
     private ActivitySignals CollectSignals()
         {
         return new ActivitySignals
@@ -98,7 +136,8 @@ public class ActivityTrackerService
             IsIdle = DetectIdle(),
             IsIDEActive = DetectIDE(),
             IsDebuggerRunning = DetectDebugger(),
-            ForegroundProcess = GetForegroundProcessName()
+            ForegroundProcess = GetForegroundProcessName(),
+            IsMouseInsideIDE = DetectMouseInsideIDE()
             };
         }
     private string GetForegroundProcessName()
@@ -113,6 +152,9 @@ public class ActivityTrackerService
         {
         
         bool isTyping = s.IsKeyboardActive || typingCooldown > 0;
+        bool isIDEEngaged =
+        (s.IsKeyboardActive && s.IsIDEActive) ||   // typing inside IDE
+        (s.IsMouseActive && s.IsMouseInsideIDE);   // mouse movement inside IDE
 
         // KEYBOARD ACTIVE → typing
         if (s.IsKeyboardActive)
@@ -136,13 +178,37 @@ public class ActivityTrackerService
                 }
             else
                 {
-                idleSeconds++;
+                // idle should NOT tick during IDE engagement
+                if (!isIDEEngaged)
+                    idleSeconds++;
+                
                 }
             }
 
-        // IDE
-        if (s.IsIDEActive)
-            ideSeconds++;
+
+        // IDE BUFFER (5 seconds before IDESeconds starts)
+        if (isIDEEngaged)
+            {
+            if (ideCooldown < 5)
+                ideCooldown++;
+
+            if (ideCooldown >= 5)
+                ideSeconds++;
+            }
+        else
+            {
+            ideCooldown = 0;
+            }
+
+        // IDLE only when NOTHING is happening
+        if (!isTyping && !s.IsMouseActive)
+            {
+            if (idleCooldown > 0)
+                idleCooldown--;
+            else
+                idleSeconds++;
+            }
+
 
         // DEBUG
         if (s.IsDebuggerRunning)

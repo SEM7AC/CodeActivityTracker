@@ -8,4 +8,6 @@ public class ActivitySignals
     public bool IsIDEActive { get; set; }
     public bool IsDebuggerRunning { get; set; }
     public string ForegroundProcess { get; set; } = string.Empty;
+    public bool IsMouseInsideIDE { get; set; }
+
     }
