@@ -156,11 +156,18 @@ public class ActivityTrackerService
     //THE LOGIC MONSTER
     private void IncrementCounters(ActivitySignals s)
         {
-
         bool isTyping = s.IsKeyboardActive || typingCooldown > 0;
         bool isIDEEngaged =
-        (s.IsKeyboardActive && s.IsIDEActive) ||   // typing inside IDE
-        (s.IsMouseActive && s.IsMouseInsideIDE);   // mouse movement inside IDE
+            (s.IsKeyboardActive && s.IsIDEActive) ||   // typing inside IDE
+            (s.IsMouseActive && s.IsMouseInsideIDE);   // mouse movement inside IDE
+
+        // DEBUG ALWAYS OVERRIDES EVERYTHING
+        if (s.IsDebuggerRunning)
+            {
+            debugSeconds++;
+            // prevent idle from ticking during debugging
+            idleCooldown = 5;
+            }
 
         // KEYBOARD ACTIVE → typing
         if (s.IsKeyboardActive)
@@ -181,9 +188,6 @@ public class ActivityTrackerService
                 idleCooldown--;
             }
 
-
-
-
         // IDE LOGIC --------------------------------------
         if (isIDEEngaged)
             {
@@ -200,21 +204,16 @@ public class ActivityTrackerService
             // else IDE stops
             }
 
-        // IDLE only when NOTHING is happening
-        if (!isTyping && !s.IsMouseActive && !isIDEEngaged)
+        // IDLE only when NOTHING is happening AND NOT DEBUGGING
+        if (!s.IsDebuggerRunning && !isTyping && !s.IsMouseActive && !isIDEEngaged)
             {
             if (idleCooldown > 0)
                 idleCooldown--;
             else
                 idleSeconds++;
             }
-
-
-
-        // DEBUG
-        if (s.IsDebuggerRunning)
-            debugSeconds++;
         }
+
     private ActivityUpdate BuildUpdate()
         {
         
