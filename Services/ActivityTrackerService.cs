@@ -8,6 +8,8 @@ public class ActivityTrackerService
     {
 
     private readonly TimerService _timer;
+    public MainWindow? MainWindowRef { get; set; }
+
 
     private int idleCooldown = 0;
     private int typingCooldown = 0;
@@ -16,6 +18,8 @@ public class ActivityTrackerService
     private int idleSeconds = 0;
     private int debugSeconds = 0;
     private int ideSeconds = 0;
+    const double MaxWidth = 380.0;
+
 
     public event Action<ActivityUpdate>? ActivityUpdated;
 
@@ -148,9 +152,11 @@ public class ActivityTrackerService
 
         return Process.GetProcessById((int)pid).ProcessName;
         }
+
+    //THE LOGIC MONSTER
     private void IncrementCounters(ActivitySignals s)
         {
-        
+
         bool isTyping = s.IsKeyboardActive || typingCooldown > 0;
         bool isIDEEngaged =
         (s.IsKeyboardActive && s.IsIDEActive) ||   // typing inside IDE
@@ -171,37 +177,31 @@ public class ActivityTrackerService
             }
         else
             {
-            // typing buffer expired → now count down idle buffer
             if (idleCooldown > 0)
-                {
                 idleCooldown--;
-                }
-            else
-                {
-                // idle should NOT tick during IDE engagement
-                if (!isIDEEngaged)
-                    idleSeconds++;
-                
-                }
             }
 
 
-        // IDE BUFFER (5 seconds before IDESeconds starts)
+
+
+        // IDE LOGIC --------------------------------------
         if (isIDEEngaged)
             {
-            if (ideCooldown < 5)
-                ideCooldown++;
-
-            if (ideCooldown >= 5)
-                ideSeconds++;
+            ideCooldown = 5;      // reset sticky window
+            ideSeconds++;         // IDE starts immediately
             }
         else
             {
-            ideCooldown = 0;
+            if (ideCooldown > 0)
+                {
+                ideCooldown--;    // sticky window counts down
+                ideSeconds++;     // IDE continues during cooldown
+                }
+            // else IDE stops
             }
 
         // IDLE only when NOTHING is happening
-        if (!isTyping && !s.IsMouseActive)
+        if (!isTyping && !s.IsMouseActive && !isIDEEngaged)
             {
             if (idleCooldown > 0)
                 idleCooldown--;
@@ -210,32 +210,32 @@ public class ActivityTrackerService
             }
 
 
+
         // DEBUG
         if (s.IsDebuggerRunning)
             debugSeconds++;
         }
     private ActivityUpdate BuildUpdate()
         {
+        
+        // Build update object
         return new ActivityUpdate
             {
-            
             TypingSeconds = typingSeconds,
             IDESeconds = ideSeconds,
             DebugSeconds = debugSeconds,
             IdleSeconds = idleSeconds,
-
 
             TypingFormatted = FormatTime(typingSeconds),
             IDEFormatted = FormatTime(ideSeconds),
             DebugFormatted = FormatTime(debugSeconds),
             IdleFormatted = FormatTime(idleSeconds),
 
-            TypingWidth = typingSeconds * 0.5,
-            IDEWidth = ideSeconds * 0.5,
-            DebugWidth = debugSeconds * 0.5,
-            IdleWidth = idleSeconds * 0.1
+            
             };
         }
+
+
     public string FormatTime(int seconds)
         {
         return TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
