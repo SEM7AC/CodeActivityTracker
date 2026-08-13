@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Text;
+using CodeActivityTracker.UI;
 
 namespace CodeActivityTracker.Services;
 
@@ -149,44 +150,59 @@ public class ActivityTrackerService
         if (Debugger.IsAttached)
             return false;
 
+        // Find Visual Studio
         var vs = Process.GetProcessesByName("devenv").FirstOrDefault();
         if (vs == null)
             return false;
 
-        // Known non-debug children of VS
-        string[] knownChildren =
-        {
-        "devhub",
-        "servicehub.intellicodemodelservice",
-        "servicehub.host.extensibility.x64",
-        "msbuild",
-        "msedgewebview2",
-        "livepreviewsurface"
-    };
-
-        // Find all children of devenv.exe
-        var children = Process.GetProcesses()
-            .Where(p =>
+        // Get VS window title
+        string title;
+        try
             {
-                try
-                    {
-                    var parent = GetParentProcessIdFast(p);
-                    return parent == vs.Id;
-                    }
-                catch { return false; }
-            });
-
-        foreach (var child in children)
+            title = vs.MainWindowTitle;
+            }
+        catch
             {
-            string name = child.ProcessName.ToLowerInvariant();
-
-            // If it's NOT a known background process → it's the debug target
-            if (!knownChildren.Contains(name))
-                return true;
+            return false;
             }
 
-        return false;
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        // Example title:
+        // "VoidPulse (Running) - dev_notes.txt - Microsoft Visual Studio"
+        // We want: "VoidPulse"
+
+        // Split at " - "
+        var parts = title.Split(new[] { " - " }, StringSplitOptions.None);
+        if (parts.Length == 0)
+            return false;
+
+        string projectPart = parts[0]; // "VoidPulse (Running)"
+
+        // Remove " (Running)" or " (Debugging)" or similar suffixes
+        int idx = projectPart.IndexOf(" (");
+        if (idx > 0)
+            projectPart = projectPart.Substring(0, idx);
+
+        string projectName = projectPart.Trim();
+
+        if (string.IsNullOrWhiteSpace(projectName))
+            return false;
+
+        // Now check if the debug target process exists
+        // If the project is "VoidPulse", the process is "VoidPulse.exe"
+        try
+            {
+            var debugTargets = Process.GetProcessesByName(projectName);
+            return debugTargets.Any();
+            }
+        catch
+            {
+            return false;
+            }
         }
+
     private bool DetectMouseInsideIDE()
         {
         POINT pt;
