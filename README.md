@@ -35,9 +35,70 @@ Each timer tick collects raw OS signals:
 | `IsIdle` | Windows idle time > 0 seconds |
 | `IsIDEActive` | Foreground window is Visual Studio (`devenv`) |
 | `IsMouseInsideIDE` | Cursor is inside the IDE window or its child controls |
-| `IsDebuggerRunning` | Debugger is attached |
+| `IsDebuggerRunning` | Debugger is detected **! IMPORTANT NOTE BELOW !** |
 
 These signals feed into the classification logic.
+
+---
+
+## 🐞 Debugging Detection Notes (Important for Contributors)
+
+CATS determines whether Visual Studio is debugging by checking two things:
+
+1. **The project name shown in the Visual Studio window title**  
+2. **Whether a running process exists with that exact name**
+
+If both conditions are true, CATS increments `DebugSeconds`.
+
+### ❗ Why False Positives Can Happen
+
+If the **CATS solution** is open in Visual Studio *and* the **standalone CATS.exe** is running, the detection logic will:
+
+- read the VS window title → `CodeActivityTracker`  
+- find a running process → `CodeActivityTracker.exe`  
+- assume debugging is active  
+- tick the Debug bar  
+
+This is expected behavior with the current implementation.
+
+### ❗ Why This Happens
+
+The logic does **not** check whether the matching process:
+
+- was spawned by Visual Studio  
+- has `devenv.exe` as its parent  
+- is actually a debug target  
+
+It only checks:
+
+- “Does VS say the project name is X?”  
+- “Is there a process named X.exe running?”
+
+If both are true → debugging is considered active.
+
+### 🧠 How This Could Be Improved (Optional)
+
+A stricter check would verify:
+
+- the matching process’s **parent handle**  
+- ensuring the parent is **devenv.exe**
+
+This would eliminate the false positive when:
+
+- the solution is open  
+- AND the standalone app is running  
+- AND no debugging is happening
+
+However, most users will never run the standalone app while also opening its solution in Visual Studio, so this edge case is acceptable for now.
+
+### ✔ Current Behavior (Shipped)
+
+Debugging is considered active when:
+
+- Visual Studio window title contains the project name  
+- AND a process with that name exists  
+
+This is simple, reliable for normal workflows, and avoids unnecessary complexity.
 
 ---
 
@@ -107,6 +168,8 @@ IncrementCounters applies cooldown logic and increments activity streams
 ActivityUpdated emits a structured snapshot  
 UI layer renders bars, percentages, and session summaries
 
+---
+
 ## Example Output
 
 Total: 00:07:48  
@@ -118,12 +181,16 @@ Tier: BEAST MODE
 
 Percentages exceed 100% because streams overlap — this is correct.
 
+---
+
 ## Known Limitations
 
 Mouse detection is movement‑based, not click‑based  
 IDE detection supports Visual Studio only  
 Idle detection depends on Windows GetLastInputInfo  
 Cooldowns assume 1 tick = 1 second
+
+---
 
 ## Future Enhancements
 
