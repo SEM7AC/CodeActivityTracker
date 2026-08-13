@@ -1,6 +1,8 @@
-﻿using CodeActivityTracker.Model;
+﻿using CodeActivityTimer.Services;
+using CodeActivityTracker.Model;
 using CodeActivityTracker.Services;
 using System.ComponentModel;
+using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -13,8 +15,12 @@ namespace CodeActivityTracker
         private readonly TimerService _timer;
         private readonly LoggerService _logger;
         private readonly ActivityTrackerService _tracker;
+        private readonly TierCalculator _tierCalculator = new();
+        private readonly TierNameProvider _tierNameProvider = new();
+        private readonly int _tierNameIndex;
 
-        private static readonly Random _rng = new();
+
+
 
         private int totalSeconds;
         private int typingSeconds;
@@ -33,34 +39,7 @@ namespace CodeActivityTracker
         private int ideBarSeconds = 0;
         private int debugBarSeconds = 0;
         private int idleBarSeconds = 0;
-
-
-        private string GetTierLabel(int tier)
-            {
-            return tier switch
-                {
-                    1 => "BEAST MODE",
-
-                    2 => _rng.Next(2) == 0
-                        ? "RESPECT EARNED"
-                        : "UNEXPECTED COMPETENCE",
-
-                    3 => _rng.Next(2) == 0
-                        ? "CHECK THE BLOCK"
-                        : "TIME CLOCK WATCHER",
-
-                    4 => _rng.Next(2) == 0
-                        ? "MODEM SCREECH"
-                        : "PENTIUM",
-
-                    5 => _rng.Next(2) == 0
-                        ? "DEPRECATED"
-                        : "404 — WORK NOT FOUND",
-
-                    _ => "UNKNOWN TIER"
-                    };
-            }
-
+     
         public MainWindow()
             {
             InitializeComponent();
@@ -68,6 +47,8 @@ namespace CodeActivityTracker
             _timer = new TimerService(1000);
             _logger = new LoggerService();
             _tracker = new ActivityTrackerService(_timer);
+            _tierNameIndex = new Random().Next(0, 4); // max array length
+
 
             // *** IMPORTANT: give tracker access to this window ***
             _tracker.MainWindowRef = this;
@@ -86,12 +67,10 @@ namespace CodeActivityTracker
             if (e.LeftButton == MouseButtonState.Pressed)
                 DragMove();
             }
-
         private void Close_Click(object sender, RoutedEventArgs e)
             {
             Close();
             }
-
         private void Minimize_Click(object sender, RoutedEventArgs e)
             {
             WindowState = WindowState.Minimized;
@@ -113,13 +92,11 @@ namespace CodeActivityTracker
             debugBarSeconds = debugSeconds - (debugFlips * FLIP_THRESHOLD);
             idleBarSeconds = idleSeconds - (idleFlips * FLIP_THRESHOLD);
 
-
             // --- FLIP CHECKS ---
             FlipBar(ref typingBarSeconds, ref typingFlips, TypingBar, TypingFlipsLabel);
             FlipBar(ref ideBarSeconds, ref ideFlips, IDEBar, IDEFlipsLabel);
             FlipBar(ref debugBarSeconds, ref debugFlips, DebugBar, DebugFlipsLabel);
             FlipBar(ref idleBarSeconds, ref idleFlips, IdleBar, IdleFlipsLabel);
-
 
             // --- UPDATE TIME LABELS (now using accumulated flips) ---
             TypeTime.Text = _tracker.FormatTime(typingBarSeconds + (typingFlips * FLIP_THRESHOLD));
@@ -133,28 +110,50 @@ namespace CodeActivityTracker
             DebugBar.Value = debugBarSeconds;
             IdleBar.Value = idleBarSeconds;
 
+            // --- CALCULATE PERCENTAGES FOR TIER SYSTEM ---
+            double typingPct = totalSeconds > 0 ? (double)typingSeconds / totalSeconds * 100 : 0;
+            double idePct = totalSeconds > 0 ? (double)ideSeconds / totalSeconds * 100 : 0;
+            double debugPct = totalSeconds > 0 ? (double)debugSeconds / totalSeconds * 100 : 0;
+            double idlePct = totalSeconds > 0 ? (double)idleSeconds / totalSeconds * 100 : 0;
+
+            // --- GET TIER OBJECT ---
+            var tier = _tierCalculator.Calculate(typingPct, idePct, debugPct, idlePct);
+
+            // --- UPDATE TIER TEXT ELEMENTS ----------------------------
+            TypingTierLabel.Text = $"Typing: {tier.TypingLabel}";
+            IdeTierLabel.Text = $"IDE: {tier.IdeLabel}";
+            DebugTierLabel.Text = $"Debug: {tier.DebugLabel}";
+            IdleTierLabel.Text = $"Idle: {tier.IdleLabel}";
+
+            
             }
 
 
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
             {
+            _timer.Stop();
             WriteSessionLog();
             }
-
         private void WriteSessionLog()
             {
             // REAL elapsed time (correct denominator)
             int realElapsedSeconds = (int)(DateTime.Now - sessionStartTime).TotalSeconds;
 
-            // Tier must use REAL time, not inflated activity ticks
-            int tier = CalculateTier(
-                realElapsedSeconds,
-                typingSeconds,
-                ideSeconds,
-                debugSeconds,
-                idleSeconds);
+            // --- REAL PERCENTAGES FOR TIER SYSTEM ---
+            double typingPct = realElapsedSeconds > 0 ? (double)typingSeconds / realElapsedSeconds * 100 : 0;
+            double idePct = realElapsedSeconds > 0 ? (double)ideSeconds / realElapsedSeconds * 100 : 0;
+            double debugPct = realElapsedSeconds > 0 ? (double)debugSeconds / realElapsedSeconds * 100 : 0;
+            double idlePct = realElapsedSeconds > 0 ? (double)idleSeconds / realElapsedSeconds * 100 : 0;
 
-            string tierLabel = GetTierLabel(tier);
+            // --- GET TIER OBJECT ---
+            var tier = _tierCalculator.Calculate(typingPct, idePct, debugPct, idlePct);
+
+            // --- AVERAGE TIER (OVERALL) ---
+            int overallTier = (tier.TypingTier + tier.IdeTier + tier.DebugTier + tier.IdleTier) / 4;
+
+            // --- GET OVERALL TIER NAME ---
+            string tierLabel = _tierNameProvider.GetOverallName(overallTier);
+
 
             // KPI string must also use REAL time
             string line =
@@ -169,44 +168,13 @@ namespace CodeActivityTracker
 
             _logger.Log(line);
             }
-
         private string Percent(int part, int total)
             {
             if (total == 0) return "0%";
             double pct = (double)part / total * 100;
             return $"{pct:0}%";
             }
-
-        private int CalculateTier(int realTotal, int typing, int ide, int debug, int idle)
-            {
-            if (realTotal <= 0)
-                return 5; // DEPRECATED / 404 — WORK NOT FOUND
-
-            double typingPct = (double)typing / realTotal * 100;
-            double idePct = (double)ide / realTotal * 100;
-            double debugPct = (double)debug / realTotal * 100;
-            double idlePct = (double)idle / realTotal * 100;
-
-            double engagement = typingPct + idePct + debugPct;
-
-            if (debugPct >= 40)
-                return 3;
-
-            if (engagement >= 70)
-                return 1;
-
-            if (engagement >= 50)
-                return 2;
-
-            if (engagement >= 30)
-                return 3;
-
-            if (engagement >= 10)
-                return 4;
-
-            return 5;
-            }
-               
+       
         private void FlipBar(ref int seconds, ref int flips, Slider bar, TextBlock label)
             {
             if (seconds >= FLIP_THRESHOLD)
@@ -217,6 +185,7 @@ namespace CodeActivityTracker
                 label.Text = $"x{flips}";
                 }
             }
+        
 
         }
     }

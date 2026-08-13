@@ -1,5 +1,4 @@
 ﻿using System.Windows.Threading;
-using System.Runtime.InteropServices;
 
 namespace CodeActivityTracker.Services;
 
@@ -20,6 +19,7 @@ public class TimerService
         {
         _timer.Start();
         }
+    // Kept method for future development, right now 
     public void Stop()
         {
         _timer.Stop();
