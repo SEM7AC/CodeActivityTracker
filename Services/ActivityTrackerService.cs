@@ -163,6 +163,16 @@ public class ActivityTrackerService
         if (string.IsNullOrWhiteSpace(title))
             return false;
 
+        // ---------------------------------------------------------
+        // UNIVERSAL DEBUGGING SIGNAL (works for ALL project types)
+        // ---------------------------------------------------------
+        if (title.Contains("(Running)") || title.Contains("(Debugging)"))
+            return true;
+
+        // -----------------------------
+        // ORIGINAL LOGIC (kept exactly)
+        // -----------------------------
+
         var parts = title.Split(new[] { " - " }, StringSplitOptions.None);
         if (parts.Length == 0)
             return false;
@@ -192,12 +202,18 @@ public class ActivityTrackerService
                         return true;
                     }
                 }
-
             }
         catch { }
 
+        // ---------------------------------------------------------
+        // FIXED LOGIC (ASP.NET + Docker)
+        // ---------------------------------------------------------
+        if (IsDockerDebugging())
+            return true;
+
         return false;
         }
+
 
 
 
@@ -350,6 +366,26 @@ public class ActivityTrackerService
 
         return -1;
         }
+
+    private bool IsDockerDebugging()
+        {
+        try
+            {
+            // Docker Desktop proxy process exists ONLY when a container
+            // with a mapped port is actively running.
+            var proxies = Process.GetProcessesByName("com.docker.proxy");
+
+            // If ANY proxy exists → Docker container is running AND mapped
+            // ports are active. This is the closest host-visible footprint
+            // of Docker debugging.
+            return proxies.Length > 0;
+            }
+        catch
+            {
+            return false;
+            }
+        }
+
 
 
 

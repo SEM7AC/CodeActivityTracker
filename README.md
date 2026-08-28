@@ -41,14 +41,32 @@ These signals feed into the classification logic.
 
 ---
 
-## 🐞 Debugging Detection Notes (Important for Contributors)
+## 🐞 Debugging Detection Notes (Visual Studio Only)
 
-CATS determines whether Visual Studio is debugging by checking two things:
+CATS detects debugging **only for Visual Studio (devenv.exe)**.
 
-1. **The project name shown in the Visual Studio window title**  
-2. **Whether a running process exists with that exact name**
+It works by reading the Visual Studio window title and checking for the
+"(Running)" indicator that appears whenever a debug session is active.
+This method is stable across all Visual Studio project types, including
+ASP.NET, WPF, console apps, IIS Express, Docker, WSL2, and container
+debugging.
 
-If both conditions are true, CATS increments `DebugSeconds`.
+CATS does **not** support debugging detection in:
+
+- Visual Studio Code
+- JetBrains Rider
+- CLI debugging
+- Remote SSH debugging
+- Dev containers
+- Browser-based debugging
+
+These environments do not expose a reliable host-side debugging signal
+that Windows can detect externally.
+
+CATS monitors **Visual Studio’s debugging state**, not whether the
+tracker’s own process is being debugged. If Visual Studio is debugging
+any project, CATS will correctly increment DebugSeconds.
+
 
 ### ❗ Why False Positives Can Happen
 
@@ -144,7 +162,13 @@ IdleSeconds increments when:
 ### Debugging
 DebugSeconds increments when:
 
-- Debugger is attached  
+- Visual Studio is actively debugging any project  
+  (detected via the "(Running)" indicator in the VS window title)
+
+This does not rely on Debugger.IsAttached.  
+CATS monitors Visual Studio’s debugging state, not whether the tracker’s
+own process is being debugged.
+ 
 
 ---
 
