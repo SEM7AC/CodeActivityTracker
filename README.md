@@ -1,7 +1,7 @@
 # CodeActivityTracker
 
 A lightweight, real‑time developer activity tracker for Windows.  
-It monitors keyboard activity, mouse movement, IDE interaction, idle time, and debugging state — then emits structured updates for UI visualization, logging, or productivity analytics.
+It monitors keyboard activity, mouse movement, VS IDE interaction, idle time, and debugging state — then emits structured updates for UI visualization, logging, or productivity analytics.
 
 This project is built for *actual coding behavior*, not fake “productivity scoring.”  
 It uses cooldown buffers and real OS signals to classify activity accurately.
@@ -142,7 +142,7 @@ TypingSeconds increments when:
 - Keyboard is active  
 - **or** typingCooldown > 0  
 
-### IDE Engagement
+### IDE Engagement (Visual Studio)
 IDESeconds increments when:
 
 - Typing inside IDE  
