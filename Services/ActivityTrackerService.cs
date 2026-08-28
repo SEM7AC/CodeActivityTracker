@@ -1,9 +1,12 @@
 ﻿using CodeActivityTracker.Model;
+using CodeActivityTracker.UI;
 using System.Diagnostics;
+using System.IO;
 using System.Management;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
-using CodeActivityTracker.UI;
+using System.Text.RegularExpressions;
 
 namespace CodeActivityTracker.Services;
 
@@ -146,62 +149,60 @@ public class ActivityTrackerService
         }
     private bool DetectDebugger()
         {
-        // Ignore debugging of CodeActivityTracker itself
         if (Debugger.IsAttached)
             return false;
 
-        // Find Visual Studio
         var vs = Process.GetProcessesByName("devenv").FirstOrDefault();
         if (vs == null)
             return false;
 
-        // Get VS window title
         string title;
-        try
-            {
-            title = vs.MainWindowTitle;
-            }
-        catch
-            {
-            return false;
-            }
+        try { title = vs.MainWindowTitle; }
+        catch { return false; }
 
         if (string.IsNullOrWhiteSpace(title))
             return false;
 
-        // Example title:
-        // "VoidPulse (Running) - dev_notes.txt - Microsoft Visual Studio"
-        // We want: "VoidPulse"
-
-        // Split at " - "
         var parts = title.Split(new[] { " - " }, StringSplitOptions.None);
         if (parts.Length == 0)
             return false;
 
-        string projectPart = parts[0]; // "VoidPulse (Running)"
-
-        // Remove " (Running)" or " (Debugging)" or similar suffixes
+        string projectPart = parts[0];
         int idx = projectPart.IndexOf(" (");
         if (idx > 0)
             projectPart = projectPart.Substring(0, idx);
 
         string projectName = projectPart.Trim();
-
         if (string.IsNullOrWhiteSpace(projectName))
             return false;
 
-        // Now check if the debug target process exists
-        // If the project is "VoidPulse", the process is "VoidPulse.exe"
         try
             {
             var debugTargets = Process.GetProcessesByName(projectName);
-            return debugTargets.Any();
+
+            foreach (var proc in debugTargets)
+                {
+                int parentPid = GetParentProcessId(proc.Id);
+                if (parentPid > 0)
+                    {
+                    var parent = Process.GetProcessById(parentPid);
+
+                    // Only count debugging if Visual Studio launched the process
+                    if (parent.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                    }
+                }
+
             }
-        catch
-            {
-            return false;
-            }
+        catch { }
+
+        return false;
         }
+
+
+
+
+
 
     private bool DetectMouseInsideIDE()
         {
@@ -220,18 +221,6 @@ public class ActivityTrackerService
             return false;
 
         return window == ideWindow || IsChild(ideWindow, window);
-        }
-    private int GetParentProcessIdFast(Process process)
-        {
-        PROCESS_BASIC_INFORMATION pbi = new PROCESS_BASIC_INFORMATION();
-        int status = NtQueryInformationProcess(
-            process.Handle,
-            0,
-            ref pbi,
-            Marshal.SizeOf(pbi),
-            out _);
-
-        return status == 0 ? pbi.InheritedFromUniqueProcessId.ToInt32() : -1;
         }
     private ActivitySignals CollectSignals()
         {
@@ -349,6 +338,26 @@ public class ActivityTrackerService
         uint idleTicks = ((uint)Environment.TickCount - info.dwTime);
         return (int)(idleTicks / 1000);
         }
+
+    private int GetParentProcessId(int pid)
+        {
+        using (var searcher = new ManagementObjectSearcher(
+            "SELECT ParentProcessId FROM Win32_Process WHERE ProcessId = " + pid))
+            {
+            foreach (var obj in searcher.Get())
+                return Convert.ToInt32(obj["ParentProcessId"]);
+            }
+
+        return -1;
+        }
+
+
+
+
+
+
+
+
 
 
 

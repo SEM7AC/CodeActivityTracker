@@ -94,6 +94,12 @@ This improvement is not implemented because most users will never run the
 standalone app while also opening its solution in Visual Studio. The current
 behavior is acceptable and simpler.
 
+NOTE: !!!!!!!!!!!!!!!!!
+The optional parent‑process validation described in this section
+has now been implemented. Debugging is only considered active when
+the matching process is a child of devenv.exe.
+
+
 ---
 
 ## Current Behavior (Shipped)
